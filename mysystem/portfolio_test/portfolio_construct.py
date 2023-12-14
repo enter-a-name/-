@@ -2,7 +2,11 @@ import pandas as pd
 import numpy as np
 import sklearn
 import os
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from scipy.optimize import minimize
 
+# 加载因子，控制是否忽略被打回的
 def load_features(ignore_deprecated = True):
     
     factors = os.listdir('./mysystem/factors')
@@ -16,7 +20,7 @@ def load_features(ignore_deprecated = True):
         path = './mysystem/factors/' + i
         lsret = pd.read_csv(path+'/lsreturn.csv').rename(columns={'0':i})
         cur_feature = pd.read_feather(path+'/value.feather')
-        features.append(cur_feature)
+        features.append(cur_feature.set_index('date'))
         
         if i == factors[0]:
             all_rets = lsret
@@ -33,42 +37,116 @@ class Portfolio:
         self.features = features
         self.feature_ret = rets
         self.test_size = test_set_size
-        self.weight_by_day = None
+        self.ls_ret = None
+        self.weight = None
+        self.method = None
+        self.modified = False
         
     # 用于数据降维和标准化
-    def feature_preproc(self,method,k=None):
+    def feature_preproc(self,method,n_components = 3):
         
+        # pca降维
         if method == 'pca':
-            pass
-        elif method == 'selectK':
-            if k == None:
-                k = self.features.shape[1]//2
+            
+            self.feature_preproc('standardize')
+            
+            dataframes_list = self.features
+            ans = [pd.DataFrame(np.nan,dataframes_list[0].index,dataframes_list[0].columns) for i in range(n_components)]
+            print('正在进行PCA')
+
+            # 按日标准化
+            for i in range(dataframes_list[0].shape[0]):
+                
+                if i%(dataframes_list[0].shape[0]//10) == 0:
+                    print('当前进度{:.0f}%'.format(i/dataframes_list[0].shape[0]*100))
+                    
+                cur_fact = []
+                for j in range(len(dataframes_list)):
+                    cur_fact.append(dataframes_list[j].fillna(0).iloc[i,:])
+                cur_fact_arr = np.vstack(cur_fact)
+                    
+                # 判断有值的比例是否超过阈值
+                if np.count_nonzero(cur_fact_arr) / cur_fact_arr.flatten().shape[0] >= 0.5:
+                    model = PCA(n_components=n_components)
+                    model.fit(cur_fact_arr.T)
+                    transformed_arr = model.transform(cur_fact_arr.T)
+                    for j in range(n_components):
+                        ans[j].iloc[i,:] = transformed_arr[:,j]
+            
+            self.modified = True
+            self.features = ans
+            self.feature_preproc('standardize')
+              
+        # 数据标准化  
         elif method == 'standardize':
-            pass
+            for i in range(len(self.features)):
+                scaler = StandardScaler()
+                scaler.fit(self.features[i])
+                cur = pd.DataFrame(scaler.transform(self.features[i]),columns=self.features[i].columns)
+                cur.index = self.features[i].index
+                self.features[i] = cur
+            
         else:
-            print('不合法的降维方式，请选择pca/selectK/standardize')
+            print('不合法的降维方式，请选择pca/standardize')
         
-        self.feature_ret = None
+    # 构建组合的整体接口
+    def construct_portfolio(self,method):
         
-    def construct_portfolio(self,method,**kwargs):
+        self.method = method
         
         if method == 'equal_weight':
-            _eq_construct(self)
+            self._eq_construct()
+        elif method == 'effecient_frontier':
+            self._capm_construct()
+        elif method == 'ml':
+            self._ml_construct()
+        else:
+            print('不合法的组合构建方式，请选择equal_weight/effecient_frontier/ml')
         
-        if method == 'effecient_frontier':
-            _capm_construct(self,**kwargs)
-        
-        if method == 'ml':
-            _ml_construct(self,**kwargs)
-        
+    # 等权组合
     def _eq_construct(self):
-        pass
-    
-    def _capm_construct(self,**kwargs):
-        if self.feature_ret == None:
+        
+        if self.modified == True:
+            print('等权组合的构造不能接受对因子的预处理，因为这会改变每个因子的收益')
+            return
+        
+        self.ls_ret = self.feature_ret.set_index('date').mean(axis=1)
+        n =  self.feature_ret.shape[1] - 1
+        self.weight = np.array([1/n for i in range(n)])
+        
+    # 有效前沿组合
+    def _capm_construct(self):
+        
+        # 最大化样本内夏普率
+        def objective_function(w, r, C):
+            
+            mean_return = np.dot(w, r)
+            std_dev = np.sqrt(np.dot(np.dot(w, C), w))
+            return -mean_return / std_dev
+        
+        if self.modified == True:
             print('有效前沿组合的构造不能接受对因子的预处理，因为这会改变每个因子的收益')
             return
-        pass
+        
+        n =  self.feature_ret.shape[1] - 1
+        initial_guess = np.ones(n) / n # 初始化权重
+        
+        # 样本内调参
+        in_sample_feature_ret = self.feature_ret.set_index('date')\
+            .iloc[:int((1-self.test_size)*self.feature_ret.shape[0])]
+            
+        r = in_sample_feature_ret.mean(axis=0)
+        C = in_sample_feature_ret.corr()
+        
+        # 优化算法
+        bounds = tuple((0, 1) for i in range(n))
+        result = minimize(objective_function, initial_guess, args=(r, C),\
+            bounds=bounds)
+
+        self.weight = result.x / result.x.sum()
+        self.ls_ret = (self.weight * self.feature_ret.set_index('date')).sum(axis=1)
     
-    def _ml_construct(self,**kwargs):
+    # 机器学习组合
+    def _ml_construct(self):
+        
         pass

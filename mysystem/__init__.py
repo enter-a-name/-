@@ -12,6 +12,9 @@ print('欢迎使用回测系统')
 if 'messages' not in os.listdir('./mysystem'):
     os.makedirs('./mysystem/messages/')
 
+if 'factors' not in os.listdir('./mysystem'):
+    os.makedirs('./mysystem/factors/')
+    
 files = os.listdir('./mysystem/messages')
 for f in files:
     with open('./mysystem/messages/'+f, 'r') as file:
