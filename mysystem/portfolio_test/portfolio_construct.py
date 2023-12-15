@@ -5,6 +5,7 @@ import os
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from scipy.optimize import minimize
+import lightgbm as lgb
 
 # 加载因子，控制是否忽略被打回的
 def load_features(ignore_deprecated = True):
@@ -152,6 +153,36 @@ class Portfolio:
     # 机器学习组合
     def _ml_construct(self):
         
-        # 这里仅以svm为例，以后应该加入更多选择
+        # 这里仅以lgboost为例，以后应该加入更多选择
+        num_round = 100
         
-        pass
+        Xtrain = np.array([i.shift(1).iloc[int((1-self.test_size)*self.feature_ret.shape[0]):].values\
+            for i in self.features]).reshape(4,-1)
+        Xtot = np.array([i.shift(1).values for i in self.features]).reshape(4,-1)
+        
+        Ytrain = (((self.pct>0).astype('int') - (self.pct<0).astype('int')))\
+            .iloc[int((1-self.test_size)*self.feature_ret.shape[0]):].values.reshape((1,-1))
+        
+        train_data = lgb.Dataset(Xtrain.T, label=Ytrain.flatten() + 1)
+        
+        params = {
+            'boosting_type': 'gbdt',
+            'objective': 'multiclass', 
+            'metric': 'multi_logloss',  
+            'num_class': 3, 
+            'learning_rate': 0.1,
+            'num_leaves': 31,
+            'max_depth': -1,
+            'feature_fraction': 0.8,
+            'bagging_fraction': 0.8,
+            'verbose': 0
+        }
+        
+        bst = lgb.train(params, train_data, num_round)
+        
+        y_pred = bst.predict(Xtot.T,num_iteration=bst.best_iteration)
+        
+        holdings = (np.argmax(y_pred,axis=1)).reshape(self.pct.shape) - 1
+        holdings = holdings / abs(holdings).sum(axis=1)[:,np.newaxis]
+        
+        self.ls_ret = (self.pct * holdings).sum(axis=1)
