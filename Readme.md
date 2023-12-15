@@ -23,7 +23,7 @@ from mysystem.portfolio_test import portfolio_backtest, portfolio_construct
 
 对于不希望干预过多细节的研究员，建议使用一站式服务接口：factor_test.wrapup_test(pctdf,data,factor_function,require_submit=True,detailed=True)
 
-这个函数会自动完成所有测试，给出详细结果，并且尝试向因子库提交，默认为截面策略，CTA策略只需设置可选参数
+这个函数会自动完成所有测试，给出详细结果，并且尝试向因子库提交，默认为截面策略，CTA策略只需设置可选参数cta=True
 
 对于希望逐步完成得到中间结果的研究员，建议使用：
 
@@ -31,7 +31,7 @@ from mysystem.portfolio_test import portfolio_backtest, portfolio_construct
 
 factor = factor_constructor.get_price_factor(data,rolling5) 或是 factor=factor_constructor.get_finstat_factor(fin_stat,info_name,pctdf)
 
-returns = factor_test.single_factor_backtest(pctdf,factor)
+returns = factor_test.single_factor_cta_backtest(pctdf,factor)
 
 factor_test.show(returns)
 
@@ -42,7 +42,7 @@ factor_test.submit(factor,returns,'因子名','因子说明')
 
 factor = factor_constructor.get_price_factor(data,rolling5) 或是 factor=factor_constructor.get_finstat_factor(fin_stat,info_name,pctdf)
 
-returns = factor_test.single_factor_backtest(pctdf,factor,cta=True,sell_threshold=bound1,buy_threshold=bound2)
+returns = factor_test.single_factor_cta_backtest(pctdf,factor,cta=True,sell_threshold=...,buy_threshold=...)
 
 factor_test.show(returns,cta = True)
 
