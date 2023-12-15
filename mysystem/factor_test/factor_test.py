@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import os
-import logging
 import configparser
 from mysystem.factor_test import factor_constructor
 import math
@@ -9,21 +8,33 @@ import matplotlib.pyplot as plt
 from scipy.stats import t
 
 # 对因子进行一站式测试
-def wrapup_test(pctdf,data,agg_func,require_returns = False, require_submit = False, cta = False):
+def wrapup_test(pctdf,data,agg_func,require_returns = False, require_submit = False, cta = False, detailed = False,\
+    sell_threshold=None,buy_threshold=None):
+    
+    factor = factor_constructor.get_price_factor(data,agg_func)
     
     if not cta:
-        factor = factor_constructor.get_price_factor(data,agg_func)
         results = single_factor_backtest(pctdf,factor,num_bins=5)
-        show(results)
+        show(results,detailed)
         
     else:
-        pass
+        results = single_factor_cta_backtest(pctdf,factor,sell_threshold,buy_threshold)
+        show(results,detailed,cta=True)
     
     if require_submit:
-        submit(factor,results,'Unnamed','研究员使用了默认测试提交，因此未给出说明')
+        submit(factor,results,'Unnamed','研究员使用了默认测试提交，因此未给出说明',cta)
         
     if require_returns:
         return factor, results
+
+# 对CTA策略进行回测
+def single_factor_cta_backtest(pctdf,factor,sell_threshold,buy_threshold):
+    
+    factor = factor.shift(1)
+    weights = ((factor > buy_threshold).astype('int') - (factor < sell_threshold).astype('int'))
+    ls_ret = (weights * pctdf).sum(axis=1) / abs(weights).sum(axis=1)
+    
+    return ls_ret
 
 # 对截面因子进行分组回测
 def single_factor_backtest(pctdf,factor,num_bins=10):
@@ -58,26 +69,35 @@ def single_factor_backtest(pctdf,factor,num_bins=10):
     return ans
 
 # 展示截面因子回测结果
-def show(results, detailed = False):
+def show(results, detailed = False, cta = False):
     
-    returns = results.iloc[:,:-2]
-    IC = results.iloc[:,-2:]
-    
-    ls_ret = (returns.iloc[:,0] - returns.iloc[:,-1]).dropna()
+    if not cta:
+        returns = results.iloc[:,:-2]
+        IC = results.iloc[:,-2:]
+        ls_ret = (returns.iloc[:,0] - returns.iloc[:,-1]).dropna()
+    else:
+        ls_ret = results
+        
     print('多空组合',end='')
     mean,sd,sr,dd = get_stats(ls_ret,show=True)
-    print('纯多头超额收益{:.2f}%, 多头'.format((returns.dropna().iloc[:,0].mean() - returns.dropna().mean().mean())\
-        *100),end='')
-    mean,sd,sr,dd = get_stats(returns.iloc[:,0].dropna(),show=True)
     
-    tstat = IC['IC'].mean() * np.sqrt(IC['IC'].shape[0]) / IC['IC'].std()
-    pval = t.sf(abs(tstat), IC['IC'].shape[0])
+    if not cta:
+        print('纯多头超额收益{:.2f}%, 多头'.format((returns.dropna().iloc[:,0].mean() - returns.dropna().mean().mean())\
+            *100),end='')
+        mean,sd,sr,dd = get_stats(returns.iloc[:,0].dropna(),show=True)
+        
+        tstat = IC['IC'].mean() * np.sqrt(IC['IC'].shape[0]) / IC['IC'].std()
+        pval = t.sf(abs(tstat), IC['IC'].shape[0])
+        
+        print('RankIC均值{:.4f}，RankIC标准差{:.4f}，IC均值{:.4f}，IC标准差{:.4f}，T统计量{:.4f}，显著性水平(p-value){:.4f}'.format(\
+            IC['rankIC'].mean(),IC['rankIC'].std(),IC['IC'].mean(),IC['IC'].std(),tstat,pval))
     
-    print('RankIC均值{:.4f}，RankIC标准差{:.4f}，IC均值{:.4f}，IC标准差{:.4f}，T统计量{:.4f}，显著性水平(p-value){:.4f}'.format(\
-        IC['rankIC'].mean(),IC['rankIC'].std(),IC['IC'].mean(),IC['IC'].std(),tstat,pval))
+        if detailed:
+            plot(returns)
     
-    if detailed:
-        plot(returns)
+    else:
+        if detailed:
+            plot(ls_ret,cta=True)
 
 # 提交因子
 def submit(factor,results,name,comment,cta=False):
@@ -95,8 +115,8 @@ def submit(factor,results,name,comment,cta=False):
         ls_ret = returns.iloc[:,0] - returns.iloc[:,-1]
         mean,sd,sr,dd = get_stats((returns.iloc[:,0] - returns.iloc[:,-1]).dropna())
     else:
-        mean,sd,sr,dd = get_stats((returns.iloc[0]).dropna())
-        ls_ret = results.iloc[:,0]
+        mean,sd,sr,dd = get_stats((results).dropna())
+        ls_ret = results
         
     corr = 0
     print('正在检验相关性和收益情况')
@@ -124,6 +144,7 @@ def submit(factor,results,name,comment,cta=False):
 def plot(results,cta = False):
     
     clean_results = results.dropna()
+    
     if not cta:
         (clean_results+1).cumprod().plot(legend=True,title='分组收益',figsize=(12,4))
         pd.DataFrame((clean_results.iloc[:,0] - clean_results.iloc[:,-1]+1).cumprod())\

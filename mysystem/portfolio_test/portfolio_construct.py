@@ -96,10 +96,13 @@ class Portfolio:
         
         if method == 'equal_weight':
             self._eq_construct()
+            self.method = 'equal_weight'
         elif method == 'effecient_frontier':
             self._capm_construct()
+            self.method = 'effecient_frontier'
         elif method == 'ml':
             self._ml_construct()
+            self.method = 'ml'
         else:
             print('不合法的组合构建方式，请选择equal_weight/effecient_frontier/ml')
         
@@ -148,5 +151,7 @@ class Portfolio:
     
     # 机器学习组合
     def _ml_construct(self):
+        
+        # 这里仅以svm为例，以后应该加入更多选择
         
         pass
