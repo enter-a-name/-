@@ -27,11 +27,11 @@ class FinStat:
 # 加载财务报表
 def load_3sheets():
     
-    balance = pd.read_feather('./data/stk_fin_balance.feather')
-    income = pd.read_feather('./data/stk_fin_income.feather')
-    cashflow = pd.read_feather('./data/stk_fin_cashflow.feather')
+    balance = pd.read_feather('../data/stk_fin_balance.feather')
+    income = pd.read_feather('../data/stk_fin_income.feather')
+    cashflow = pd.read_feather('../data/stk_fin_cashflow.feather')
     
-    mapping = pd.read_feather('./data/stk_fin_item_map.feather')
+    mapping = pd.read_feather('../data/stk_fin_item_map.feather')
     
     income = income[(income['publish_date']>=datetime.datetime(2020,1,2))&\
         (income['publish_date']<=datetime.datetime(2022,12,31))]
@@ -48,12 +48,12 @@ def load_3sheets():
 # 加载不复权的价格
 def load_original_prices():
     
-    return pd.read_feather('./data/stk_daily.feather')
+    return pd.read_feather('../data/stk_daily.feather')
 
 # 加载价格/高开低收数据并计算复权后的百分比变化
 def load_processed_prices():
     
-    data = pd.read_feather('./data/stk_daily.feather')
+    data = pd.read_feather('../data/stk_daily.feather')
     d = {id:df for id,df in data.groupby('stk_id')}
     pct_cols = []
     for i in d.keys():
