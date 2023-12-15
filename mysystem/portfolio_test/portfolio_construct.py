@@ -19,7 +19,7 @@ def load_features(ignore_deprecated = True):
     for i in factors:
         
         path = './mysystem/factors/' + i
-        lsret = pd.read_csv(path+'/lsreturn.csv').rename(columns={'0':i})
+        lsret = pd.read_csv(path+'/lsreturn.csv',parse_dates=['date']).rename(columns={'0':i})
         cur_feature = pd.read_feather(path+'/value.feather')
         features.append(cur_feature.set_index('date'))
         
@@ -156,12 +156,12 @@ class Portfolio:
         # 这里仅以lgboost为例，以后应该加入更多选择
         num_round = 100
         
-        Xtrain = np.array([i.shift(1).iloc[int((1-self.test_size)*self.feature_ret.shape[0]):].values\
-            for i in self.features]).reshape(4,-1)
-        Xtot = np.array([i.shift(1).values for i in self.features]).reshape(4,-1)
+        Xtrain = np.array([i.shift(1).iloc[:int((1-self.test_size)*self.feature_ret.shape[0])].values\
+            for i in self.features]).reshape(len(self.features),-1)
+        Xtot = np.array([i.shift(1).values for i in self.features]).reshape(len(self.features),-1)
         
         Ytrain = (((self.pct>0).astype('int') - (self.pct<0).astype('int')))\
-            .iloc[int((1-self.test_size)*self.feature_ret.shape[0]):].values.reshape((1,-1))
+            .iloc[:int((1-self.test_size)*self.feature_ret.shape[0])].values.reshape((1,-1))
         
         train_data = lgb.Dataset(Xtrain.T, label=Ytrain.flatten() + 1)
         

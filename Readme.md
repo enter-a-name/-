@@ -33,6 +33,8 @@ from mysystem.portfolio_test import portfolio_backtest, portfolio_construct
 
 基本面因子：factor=factor_constructor.get_finstat_factor(fin_stat,info_name,pctdf)
 
+其中，指定时间区间请用可选参数startdate，enddate指定，详见test.ipynb的例子
+
 returns = factor_test.single_factor_cta_backtest(pctdf,factor)
 
 factor_test.show(returns)
@@ -45,6 +47,8 @@ factor_test.submit(factor,returns,'因子名','因子说明')
 量价因子：factor = factor_constructor.get_price_factor(data,factor_function)
 
 基本面因子：factor=factor_constructor.get_finstat_factor(fin_stat,info_name,pctdf)
+
+其中，指定时间区间请用可选参数startdate，enddate指定，详见test.ipynb的例子
 
 returns = factor_test.single_factor_cta_backtest(pctdf,factor,cta=True,sell_threshold=...,buy_threshold=...)
 
@@ -84,10 +88,11 @@ PCA：my_portfolio.feature_preproc(method='pca', n_components = n)
 
 一站式函数：
 
+wrapped_portfolio_test(portfolio)
 
-对于需要逐步结果的研究员，建议选用：
+可选参数 require_return 控制是否给出中间值，默认False
 
-
+可选参数 detailed 控制是否输出图表，默认False
 
 # 数据来源
 

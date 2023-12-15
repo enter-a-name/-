@@ -5,11 +5,13 @@ import pandas as pd
 def _calc_exposure(cur_ret):
     
     # input format: 索引为date，日度收益
-    risk_ret = pd.read_csv('./newdata/daily_risk.csv').rename(columns={'Unnamed: 0':'date'})
+    risk_ret = pd.read_csv('./newdata/daily_risk.csv',index_col=0,parse_dates=True).reset_index().rename(columns={'index':'date'})
     tot_df = risk_ret.merge(cur_ret.reset_index()).dropna()
 
     X_style = tot_df.iloc[:,1:11]
+    X_style['alpha'] = 1
     X_ind = tot_df.iloc[:,11:-1]
+    X_ind['alpha'] = 1
     y = tot_df.iloc[:,-1]
     
     # style exposure
