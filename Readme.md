@@ -1,5 +1,3 @@
-作者：胡沛骅
-
 # 使用方法
 
 首先需要按照requirements.txt安装需要的包，主要包括numpy,pandas,matplotlib,configparser,sklearn,lightgbm，然后可以仿照test.ipynb给出的例子进行使用，所有的函数接口都在test.ipynb进行了详细展示
